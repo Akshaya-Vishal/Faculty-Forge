@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { QuestionPaper } from '../types/models'
+import type { Question, QuestionPaper } from '../types/models'
 
 export async function fetchDepartments() {
   if (!supabase) return []
@@ -95,6 +95,13 @@ export async function fetchQuestionsByPaper(paperId: string) {
   return data ?? []
 }
 
+export async function deletePaperFromSupabase(paperId: string) {
+  if (!supabase) return
+
+  const { error } = await supabase.from('question_papers').delete().eq('id', paperId)
+  if (error) throw error
+}
+
 export async function savePaperToSupabase(paper: Omit<QuestionPaper, 'id' | 'createdAt' | 'updatedAt'> & { faculty_id?: string }) {
   if (!supabase) return null
 
@@ -123,12 +130,88 @@ export async function savePaperToSupabase(paper: Omit<QuestionPaper, 'id' | 'cre
   return data
 }
 
+export async function updateQuestionPaperInSupabase(paperId: string, paper: Partial<QuestionPaper>) {
+  if (!supabase) return null
+
+  const payload: Record<string, unknown> = {}
+  if (paper.title !== undefined) payload.title = paper.title
+  if (paper.examName !== undefined) payload.exam_name = paper.examName
+  if (paper.internalType !== undefined) payload.internal_type = paper.internalType
+  if (paper.academicYear !== undefined) payload.academic_year = paper.academicYear
+  if (paper.semester !== undefined) payload.semester = paper.semester
+  if (paper.facultyDept !== undefined) payload.department = paper.facultyDept
+  if (paper.courseId !== undefined) payload.subject_id = paper.courseId
+  if (paper.courseCode !== undefined) payload.course_code = paper.courseCode
+  if (paper.courseName !== undefined) payload.course_name = paper.courseName
+  if (paper.maxMarks !== undefined) payload.max_marks = paper.maxMarks
+  if (paper.durationMinutes !== undefined) payload.duration_minutes = paper.durationMinutes
+  if (paper.status !== undefined) payload.status = paper.status
+  if (paper.sections !== undefined) payload.sections = paper.sections
+  if (paper.generalInstructions !== undefined) payload.general_instructions = paper.generalInstructions
+  if (paper.setLabel !== undefined) payload.set_label = paper.setLabel
+  if (paper.reviewComments !== undefined) payload.review_comments = paper.reviewComments
+  if (paper.submittedAt !== undefined) payload.submitted_at = paper.submittedAt
+  if (paper.approvedAt !== undefined) payload.approved_at = paper.approvedAt
+
+  const { data, error } = await supabase
+    .from('question_papers')
+    .update(payload)
+    .eq('id', paperId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function updatePaperInSupabase(paperId: string, updates: Partial<Record<string, unknown>>) {
   if (!supabase) return null
 
   const { data, error } = await supabase.from('question_papers').update(updates).eq('id', paperId).select().single()
   if (error) throw error
   return data
+}
+
+export async function insertQuestionInSupabase(question: Omit<Question, 'id' | 'createdAt'> & { paperId?: string }) {
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('questions')
+    .insert({
+      paper_id: question.paperId,
+      text: question.text,
+      marks: question.marks,
+      unit: question.unit,
+      bloom_level: question.bloomLevel || question.knowledgeLevel,
+      course_outcome: question.courseOutcome,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateQuestionInSupabase(questionId: string, updates: Partial<Question>) {
+  if (!supabase) return null
+
+  const payload: Record<string, unknown> = {}
+  if (updates.text !== undefined) payload.text = updates.text
+  if (updates.marks !== undefined) payload.marks = updates.marks
+  if (updates.unit !== undefined) payload.unit = updates.unit
+  if (updates.bloomLevel !== undefined || updates.knowledgeLevel !== undefined) {
+    payload.bloom_level = updates.bloomLevel || updates.knowledgeLevel
+  }
+  if (updates.courseOutcome !== undefined) payload.course_outcome = updates.courseOutcome
+
+  const { data, error } = await supabase.from('questions').update(payload).eq('id', questionId).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteQuestionFromSupabase(questionId: string) {
+  if (!supabase) return
+
+  const { error } = await supabase.from('questions').delete().eq('id', questionId)
+  if (error) throw error
 }
 
 export async function getAllPapersForAdmin() {

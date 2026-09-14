@@ -15,7 +15,17 @@ export async function sendOtpEmail(email: string): Promise<{ success: boolean; m
     })
 
     if (error) {
-      throw new Error(error.message || 'Failed to send OTP')
+      let message = error.message || 'Failed to send OTP'
+      const context = 'context' in error ? error.context : undefined
+      if (context instanceof Response) {
+        try {
+          const body = await context.clone().json() as { message?: string; error?: string }
+          message = body.message || body.error || message
+        } catch {
+          // Keep the Supabase error when the function did not return JSON.
+        }
+      }
+      throw new Error(message)
     }
 
     return data as { success: boolean; message: string }
@@ -34,27 +44,30 @@ export async function verifyOtpCode(email: string, code: string): Promise<boolea
   }
 
   try {
-    const { data, error } = await supabase
-      .from('otp_codes')
-      .select('*')
-      .eq('email', email.trim().toLowerCase())
-      .eq('code', code)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    const { data, error } = await supabase.functions.invoke('verify-otp', {
+      body: {
+        email: email.trim().toLowerCase(),
+        code: code.trim(),
+      },
+    })
 
-    if (error || !data) {
-      return false
+    if (error) {
+      let message = error.message || 'Failed to verify OTP'
+      const context = 'context' in error ? error.context : undefined
+      if (context instanceof Response) {
+        try {
+          const body = await context.clone().json() as { message?: string; error?: string }
+          message = body.message || body.error || message
+        } catch {
+          // Keep the Supabase error when the function did not return JSON.
+        }
+      }
+      throw new Error(message)
     }
 
-    // Delete the used OTP
-    await supabase
-      .from('otp_codes')
-      .delete()
-      .eq('id', data.id)
-
-    return true
+    return Boolean((data as { success?: boolean } | null)?.success)
   } catch (error) {
-    console.error('OTP verification error:', error)
+    console.warn('OTP verification request failed:', error)
     return false
   }
 }

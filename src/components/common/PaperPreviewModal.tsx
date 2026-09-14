@@ -324,7 +324,7 @@ export function PaperPreviewModal({ paper: paperProp, isOpen, onClose }: PaperPr
                         {q.isChoice && q.orQuestion && (
                           <div className="mt-3 pt-2 border-t border-dashed border-black">
                             <div className="text-center font-sans font-bold text-xs uppercase tracking-widest my-1">
-                              (OR)
+                              (OR) {q.orQuestion.subLabel || ''}
                             </div>
                             <div className="whitespace-pre-line text-slate-900 leading-relaxed font-serif text-[12px]">
                               {q.orQuestion.text}
@@ -375,7 +375,7 @@ export function PaperPreviewModal({ paper: paperProp, isOpen, onClose }: PaperPr
                         {q.isChoice && q.orQuestion && (
                           <div className="mt-3 pt-2 border-t border-dashed border-black">
                             <div className="text-center font-sans font-bold text-xs uppercase tracking-widest my-1">
-                              (OR)
+                              (OR) {q.orQuestion.subLabel || ''}
                             </div>
                             <div className="whitespace-pre-line text-slate-900 leading-relaxed font-serif text-[12px]">
                               {q.orQuestion.text}

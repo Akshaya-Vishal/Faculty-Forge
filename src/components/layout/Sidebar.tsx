@@ -1,16 +1,11 @@
 import {
-  BarChart3,
   BookOpen,
-  Calendar,
   CheckSquare,
   Database,
   FolderCheck,
   GraduationCap,
   PlusCircle,
-  ShieldCheck,
-  Sparkles,
   UserCheck,
-  Users,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
@@ -66,7 +61,6 @@ export function Sidebar({ role, mobileOpen, onCloseMobile }: SidebarProps) {
   ]
 
   const adminNav: NavItem[] = [
-    { label: 'Exam Cell Dashboard', to: ROUTES.ADMIN, icon: BarChart3 },
     {
       label: 'Review Workbench',
       to: ROUTES.ADMIN_REVIEWS,
@@ -75,25 +69,11 @@ export function Sidebar({ role, mobileOpen, onCloseMobile }: SidebarProps) {
       highlight: pendingReviewCount > 0,
     },
     {
-      label: 'Auto Paper Generator',
-      to: ROUTES.ADMIN_PAPER_GENERATOR,
-      icon: Sparkles,
-    },
-    {
       label: 'All Question Papers',
       to: ROUTES.STEP6_HUB,
       icon: FolderCheck,
       badge: papers.length,
     },
-    { label: 'Exam Cycles & Courses', to: ROUTES.ADMIN_EXAMS, icon: Calendar },
-    {
-      label: 'Master Question Bank',
-      to: ROUTES.ADMIN_QUESTION_BANK,
-      icon: Database,
-    },
-    { label: 'Faculty Directory', to: ROUTES.ADMIN_FACULTY, icon: Users },
-    { label: 'Compliance Reports', to: ROUTES.ADMIN_REPORTS, icon: BarChart3 },
-    { label: 'Admin Settings', to: ROUTES.ADMIN_PROFILE, icon: ShieldCheck },
   ]
 
   const navItems = role === 'admin' ? adminNav : facultyNav

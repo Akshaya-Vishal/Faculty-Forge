@@ -268,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (supabase) {
         const { data, error } = await supabase.auth.signUp({
-          email: payload.email,
+          email: normalizedEmail,
           password: payload.password,
           options: {
             data: {
@@ -290,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             await upsertProfile({
               id: data.user.id,
-              email: payload.email,
+              email: normalizedEmail,
               full_name: payload.name,
               role: payload.role,
               department: payload.department,

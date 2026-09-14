@@ -6,6 +6,7 @@ import { ToastProvider } from './context/ToastContext'
 
 // Auth Pages
 import { LoginPage } from './pages/auth/LoginPage'
+import { SignUpPage } from './pages/auth/SignUpPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 
 // 6-Step Flow Pages
@@ -59,6 +60,7 @@ export function App() {
 
               {/* Auth Routes */}
               <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+              <Route path={ROUTES.SIGNUP} element={<SignUpPage />} />
               <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
               {/* Admin Routes */}

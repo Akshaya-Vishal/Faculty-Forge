@@ -7,6 +7,7 @@ import {
   FileCheck,
 } from 'lucide-react'
 import { useData } from '../../context/DataContext'
+import { useAuth } from '../../context/AuthContext'
 import { DEPARTMENTS_CATALOG } from '../../data/mockData'
 import { AppLayout } from '../../components/layout/AppLayout'
 import { StepBreadcrumbs } from '../../components/layout/StepBreadcrumbs'
@@ -17,6 +18,7 @@ import type { QuestionPaper } from '../../types/models'
 
 export function Step6PaperHubPage() {
   const { papers } = useData()
+  const { role } = useAuth()
 
   const [search, setSearch] = useState('')
   const [selectedDept, setSelectedDept] = useState<string>('all')
@@ -40,7 +42,7 @@ export function Step6PaperHubPage() {
   })
 
   return (
-    <AppLayout role="faculty" pageTitle="Question Paper Hub (Open to All)">
+    <AppLayout role={role} pageTitle="Question Paper Hub (Open to All)">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Step Indicator */}
         <StepBreadcrumbs currentStep={6} />
@@ -61,13 +63,15 @@ export function Step6PaperHubPage() {
             </p>
           </div>
 
-          <Button
-            to="/create"
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs gap-2 py-3 px-5 shadow-lg shadow-indigo-600/30 shrink-0 self-start sm:self-auto"
-          >
-            <Plus className="size-4" />
-            Create New Question Paper
-          </Button>
+          {role === 'faculty' && (
+            <Button
+              to="/create"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs gap-2 py-3 px-5 shadow-lg shadow-indigo-600/30 shrink-0 self-start sm:self-auto"
+            >
+              <Plus className="size-4" />
+              Create New Question Paper
+            </Button>
+          )}
         </div>
 
         {/* Search & Filter Bar */}

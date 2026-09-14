@@ -6,6 +6,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { useData } from '../../context/DataContext'
+import { useAuth } from '../../context/AuthContext'
 import { DEPARTMENTS_CATALOG } from '../../data/mockData'
 import { AppLayout } from '../../components/layout/AppLayout'
 import { StepBreadcrumbs } from '../../components/layout/StepBreadcrumbs'
@@ -76,6 +77,7 @@ export function Step4ExamTypePage() {
   }>()
   const navigate = useNavigate()
   const { courses, papers, createPaper } = useData()
+  const { user } = useAuth()
 
   const semNumber = parseInt(sem || '3') || 3
   const selectedDept =
@@ -118,9 +120,9 @@ export function Step4ExamTypePage() {
       durationText: examOption.durationText,
       maxMarks: examOption.maxMarks,
       status: 'Draft',
-      facultyId: 'fac-101',
-      facultyName: 'Dr. Sarah Jenkins',
-      facultyDept: selectedDept.name,
+      facultyId: user?.id || 'fac-101',
+      facultyName: user?.name || 'Faculty Member',
+      facultyDept: user?.department || selectedDept.name,
       courseOutcomesList: selectedCourse.courseOutcomes || [
         { code: 'CO1', description: 'Understand fundamental concepts and linear architectures.' },
         { code: 'CO2', description: 'Apply non-linear structures to solve algorithmic problems.' },
@@ -142,26 +144,7 @@ export function Step4ExamTypePage() {
           title: 'Part A (5 x 2 = 10 Marks)',
           instruction: 'Answer all the Questions',
           totalMarks: 10,
-          questions: [
-            {
-              id: `q-init-1-${selectedCourse.id}`,
-              questionNumber: '1.',
-              text: `Define fundamental principles and terminology of ${selectedCourse.name} Unit 1.`,
-              marks: 2,
-              knowledgeLevel: 'K2',
-              courseOutcome: 'CO1',
-              unit: 1,
-            },
-            {
-              id: `q-init-2-${selectedCourse.id}`,
-              questionNumber: '2.',
-              text: `Multiple-choice questions only:\na) Option A\nb) Option B\nc) Option C\nd) Option D\nJustify your answer.`,
-              marks: 2,
-              knowledgeLevel: 'K3',
-              courseOutcome: 'CO1',
-              unit: 1,
-            },
-          ],
+          questions: [],
         },
         {
           id: 'sec-part-b',

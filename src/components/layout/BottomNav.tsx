@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Plus, Home, FolderCheck, Database, User } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 export function BottomNav() {
   const location = useLocation()
+  const { role } = useAuth()
   const path = location.pathname
 
   const isHome = path === '/' || path === '/faculty'
@@ -10,6 +12,33 @@ export function BottomNav() {
   const isHub = path === '/hub' || path === '/faculty/papers'
   const isBank = path === '/faculty/question-bank' || path === '/admin/question-bank'
   const isProfile = path === '/faculty/profile' || path === '/admin/profile'
+
+  if (role === 'admin') {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 py-1.5 md:hidden shadow-lg safe-area-inset-bottom">
+        <div className="flex items-center justify-around max-w-md mx-auto">
+          <Link
+            to="/admin/reviews"
+            className={`flex flex-col items-center justify-center py-1 px-5 rounded-xl transition-all ${
+              path === '/admin/reviews' ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FolderCheck className="size-5" />
+            <span className="text-[10px] mt-0.5">Review</span>
+          </Link>
+          <Link
+            to="/hub"
+            className={`flex flex-col items-center justify-center py-1 px-5 rounded-xl transition-all ${
+              isHub ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FolderCheck className="size-5" />
+            <span className="text-[10px] mt-0.5">Papers</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 py-1.5 md:hidden shadow-lg safe-area-inset-bottom">

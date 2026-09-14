@@ -28,6 +28,44 @@ import type {
   QuestionPaper,
 } from '../../types/models'
 
+function removeLeadingQuestionNumber(text: string) {
+  return text.replace(/^\s*(?:question\s*)?\d+(?:\s*\([a-z0-9ivx]+\))*\s*[.):]?\s+/i, '').trim()
+}
+
+function getPartCQuestionNumberForIndex(index: number, partMarks: number) {
+  if (partMarks === 8) {
+    const labels = [
+      '7 (a) (i)',
+      '7 (a) (ii)',
+      '7 (b) (i)',
+      '7 (b) (ii)',
+      '8 (a) (i)',
+      '8 (a) (ii)',
+      '8 (b) (i)',
+      '8 (b) (ii)',
+    ]
+    return labels[index] || labels[labels.length - 1]
+  }
+  return index === 0 ? '7 (a)' : '8 (a)'
+}
+
+function getAlternativeQuestionNumber(questionNumber: string) {
+  if (/\(i\)\s*$/i.test(questionNumber)) return questionNumber.replace(/\(i\)\s*$/i, '(ii)')
+  return questionNumber.replace('(a)', '(b)')
+}
+
+function getPartCFormat(partMarks: number) {
+  return partMarks === 8
+    ? {
+        title: 'Part C (4 x 8 = 32 Marks)',
+        instruction: 'Answer four questions from Question 7(a)(i)/(ii) OR 7(b)(i)/(ii), and four questions from Question 8(a)(i)/(ii) OR 8(b)(i)/(ii).',
+      }
+    : {
+        title: 'Part C (2 x 16 = 32 Marks)',
+        instruction: 'Answer Question 7(a) OR 7(b), and Question 8(a) OR 8(b).',
+      }
+}
+
 export function Step5InteractiveBuilderPage() {
   const { paperId } = useParams<{ paperId: string }>()
   const navigate = useNavigate()
@@ -45,7 +83,6 @@ export function Step5InteractiveBuilderPage() {
   const [qNumber, setQNumber] = useState('1.')
   const [knowledgeLevel, setKnowledgeLevel] = useState<KnowledgeLevel>('K2')
   const [courseOutcome, setCourseOutcome] = useState<CourseOutcome>('CO1')
-  const [unitNumber, setUnitNumber] = useState<number>(1)
   const [marks, setMarks] = useState<number>(2)
   const [questionText, setQuestionText] = useState('')
   const [isOrChoice, setIsOrChoice] = useState(false)
@@ -91,7 +128,7 @@ export function Step5InteractiveBuilderPage() {
     } else {
       const existingPartC = paper.sections.find((s) => s.sectionKey === 'PART_C')
       const count = existingPartC ? existingPartC.questions.length : 0
-      setQNumber(count === 0 ? '7 (a)' : '8 (a)')
+      setQNumber(getPartCQuestionNumberForIndex(count, 16))
       setMarks(16)
       setKnowledgeLevel('K3')
       setCourseOutcome(count === 0 ? 'CO2' : 'CO3')
@@ -108,6 +145,15 @@ export function Step5InteractiveBuilderPage() {
   // Insert Question directly into paper
   const handleInsertQuestion = (e: React.FormEvent) => {
     e.preventDefault()
+    const currentSection = paper.sections.find((section) => section.sectionKey === targetSectionKey)
+    if (targetSectionKey === 'PART_A' && (currentSection?.questions.length || 0) >= 5) {
+      showToast('warning', 'Part A is full', 'Only 5 questions are allowed in Part A.')
+      return
+    }
+    if (targetSectionKey === 'PART_C' && marks === 8 && (currentSection?.questions.length || 0) >= 8) {
+      showToast('warning', 'Part C is full', 'The 8-mark format allows four questions for Question 7 and four for Question 8.')
+      return
+    }
     if (!questionText.trim()) {
       showToast('warning', 'Missing Question Text', 'Please enter question content before inserting.')
       return
@@ -119,12 +165,16 @@ export function Step5InteractiveBuilderPage() {
       return
     }
 
-    let finalQuestionText = questionText.trim()
+    let finalQuestionText = removeLeadingQuestionNumber(questionText)
+    const defaultAlternativeText = targetSectionKey === 'PART_C' && marks === 8
+      ? `(i) Explain alternative approach for ${courseOutcome}. (4 Marks)\n(ii) Compare performance metrics. (4 Marks)`
+      : `(i) Explain alternative approach for ${courseOutcome}. (5 Marks)\n(ii) Compare performance metrics. (3 Marks)`
     if (mcqEnabled) {
       const optionLines = mcqOptions.map((option, index) => `${String.fromCharCode(97 + index)}) ${option.trim()}`)
       finalQuestionText = `${finalQuestionText}\n${optionLines.join('\n')}`
     }
 
+    const isIndependentPartCQuestion = targetSectionKey === 'PART_C' && marks === 8
     const newQ: PaperQuestion = {
       id: `pq-${Date.now()}`,
       questionNumber: qNumber,
@@ -133,20 +183,20 @@ export function Step5InteractiveBuilderPage() {
       knowledgeLevel,
       bloomLevel: knowledgeLevel,
       courseOutcome,
-      unit: unitNumber,
-      isChoice: isOrChoice,
-      orQuestion: isOrChoice
-        ? {
+      unit: 1,
+      isChoice: isIndependentPartCQuestion ? false : isOrChoice,
+      orQuestion: isIndependentPartCQuestion || !isOrChoice
+        ? undefined
+        : {
             id: `or-${Date.now()}`,
-            subLabel: qNumber.replace('(a)', '(b)'),
-            text: orQuestionText || `(i) Explain alternative approach for ${courseOutcome}. (5 Marks)\n(ii) Compare performance metrics. (3 Marks)`,
+            subLabel: getAlternativeQuestionNumber(qNumber),
+            text: orQuestionText || defaultAlternativeText,
             marks,
             knowledgeLevel,
             bloomLevel: knowledgeLevel,
             courseOutcome,
-            unit: unitNumber,
-          }
-        : undefined,
+            unit: 1,
+          },
     }
 
     const updatedSections = paper.sections.map((sec) => {
@@ -188,14 +238,15 @@ export function Step5InteractiveBuilderPage() {
       }
     } else if (targetSectionKey === 'PART_B') {
       setTargetSectionKey('PART_C')
-      setQNumber('7 (a)')
+      setQNumber(getPartCQuestionNumberForIndex(0, 16))
       setMarks(16)
       setKnowledgeLevel('K3')
       setCourseOutcome('CO2')
       setIsOrChoice(true)
-    } else if (targetSectionKey === 'PART_C' && qNumber.startsWith('7')) {
-      setQNumber('8 (a)')
-      setCourseOutcome('CO3')
+    } else if (targetSectionKey === 'PART_C') {
+      const nextPartCIndex = (currentSection?.questions.length || 0) + 1
+      setQNumber(getPartCQuestionNumberForIndex(nextPartCIndex, marks))
+      if (nextPartCIndex >= 4) setCourseOutcome('CO3')
     }
   }
 
@@ -277,6 +328,12 @@ export function Step5InteractiveBuilderPage() {
     const updatedPaper = { ...paper, courseOutcomesList, updatedAt: new Date().toISOString() }
     setPaper(updatedPaper)
     updatePaper(paper.id, { courseOutcomesList })
+  }
+
+  const handleFacultyNameChange = (facultyName: string) => {
+    const updatedPaper = { ...paper, facultyName, updatedAt: new Date().toISOString() }
+    setPaper(updatedPaper)
+    updatePaper(paper.id, { facultyName })
   }
 
   return (
@@ -422,8 +479,11 @@ export function Step5InteractiveBuilderPage() {
                 <button
                   type="button"
                   onClick={() => handleSectionChange('PART_A')}
+                  disabled={(partA?.questions.length ?? 0) >= 5}
                   className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
-                    targetSectionKey === 'PART_A'
+                    (partA?.questions.length ?? 0) >= 5
+                      ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                      : targetSectionKey === 'PART_A'
                       ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
@@ -456,7 +516,7 @@ export function Step5InteractiveBuilderPage() {
             </div>
 
             {/* Step 2: Meta Tags (Q.No, Knowledge Level, CO, Marks, Unit) */}
-            <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-4">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Q. Number</label>
                 <input
@@ -509,28 +569,61 @@ export function Step5InteractiveBuilderPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Syllabus Unit</label>
-                <select
-                  value={unitNumber}
-                  onChange={(e) => setUnitNumber(parseInt(e.target.value) || 1)}
-                  className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold text-slate-900 bg-white"
-                >
-                  <option value={1}>Unit 1</option>
-                  <option value={2}>Unit 2</option>
-                  <option value={3}>Unit 3</option>
-                  <option value={4}>Unit 4</option>
-                  <option value={5}>Unit 5</option>
-                </select>
+                <label className="block font-bold text-slate-700 mb-1">Allocated Marks</label>
+                {targetSectionKey === 'PART_B' ? (
+                  <input
+                    type="number"
+                    required
+                    value={8}
+                    readOnly
+                    className="w-full rounded-xl border border-slate-300 bg-slate-100 p-2 text-center text-xs font-bold text-slate-900"
+                  />
+                ) : targetSectionKey === 'PART_C' ? (
+                  <select
+                    required
+                    value={marks}
+                    onChange={(e) => {
+                      const selectedMarks = Number(e.target.value) === 8 ? 8 : 16
+                      const partCCount = paper.sections.find((section) => section.sectionKey === 'PART_C')?.questions.length || 0
+                      const partCFormat = getPartCFormat(selectedMarks)
+                      const updatedSections = paper.sections.map((section) =>
+                        section.sectionKey === 'PART_C'
+                          ? { ...section, title: partCFormat.title, instruction: partCFormat.instruction }
+                          : section,
+                      )
+                      setMarks(selectedMarks)
+                      setIsOrChoice(selectedMarks === 16)
+                      setQNumber(getPartCQuestionNumberForIndex(
+                        selectedMarks === 8 ? partCCount : (qNumber.startsWith('8') ? 1 : 0),
+                        selectedMarks,
+                      ))
+                      setPaper({ ...paper, sections: updatedSections })
+                      updatePaper(paper.id, { sections: updatedSections })
+                    }}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-900"
+                  >
+                    <option value={8}>8 Marks</option>
+                    <option value={16}>16 Marks</option>
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    required
+                    value={marks}
+                    readOnly
+                    className="w-full rounded-xl border border-slate-300 bg-slate-100 p-2 text-center text-xs font-bold text-slate-900"
+                  />
+                )}
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Allocated Marks</label>
+              <div className="col-span-2 sm:col-span-4">
+                <label className="block font-bold text-slate-700 mb-1">Faculty Name</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  value={marks}
-                  onChange={(e) => setMarks(parseInt(e.target.value) || 2)}
-                  className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold text-center text-slate-900"
+                  value={paper.facultyName}
+                  onChange={(event) => handleFacultyNameChange(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs font-bold text-slate-900 focus:border-indigo-500 focus:outline-hidden"
                 />
               </div>
             </div>
@@ -655,11 +748,11 @@ export function Step5InteractiveBuilderPage() {
             )}
 
             {/* Optional OR Question for Part B / Part C */}
-            {(targetSectionKey === 'PART_B' || targetSectionKey === 'PART_C') && (
+            {(targetSectionKey === 'PART_B' || (targetSectionKey === 'PART_C' && marks === 16)) && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-amber-900 text-xs uppercase tracking-wide">
-                    --- (OR) Alternative Question ({qNumber.replace('(a)', '(b)')}) ---
+                    --- (OR) Alternative Question ({getAlternativeQuestionNumber(qNumber)}) ---
                   </span>
                   <span className="text-[11px] font-bold text-amber-800">{marks} Marks</span>
                 </div>
@@ -667,7 +760,7 @@ export function Step5InteractiveBuilderPage() {
                   rows={2}
                   value={orQuestionText}
                   onChange={(e) => setOrQuestionText(e.target.value)}
-                  placeholder={`Enter alternate (OR) question for ${qNumber.replace('(a)', '(b)')}...`}
+                  placeholder={`Enter alternate (OR) question for ${getAlternativeQuestionNumber(qNumber)}...`}
                   className="w-full rounded-xl border border-amber-300 bg-white p-3 text-xs text-slate-900 focus:border-amber-500 focus:outline-hidden font-serif"
                 />
               </div>
@@ -868,7 +961,7 @@ export function Step5InteractiveBuilderPage() {
                       {q.isChoice && q.orQuestion && (
                         <div className="pt-3 border-t border-dashed border-slate-300 space-y-1">
                           <div className="text-center font-bold text-xs uppercase tracking-widest text-slate-500 my-1">
-                            --- (OR) ---
+                            --- (OR) {q.orQuestion.subLabel || ''} ---
                           </div>
                           <p className="text-xs text-slate-800 leading-relaxed font-serif whitespace-pre-line">
                             {q.orQuestion.text}
@@ -971,7 +1064,6 @@ export function Step5InteractiveBuilderPage() {
                   setKnowledgeLevel((bq.knowledgeLevel || 'K2') as KnowledgeLevel)
                   setCourseOutcome(bq.courseOutcome)
                   setMarks(bq.marks)
-                  setUnitNumber(bq.unit)
                   setBankModalOpen(false)
                   showToast('success', 'Question Loaded', 'Populated question text into form.')
                 }}

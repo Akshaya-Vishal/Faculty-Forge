@@ -8,7 +8,7 @@ import type { UserRole } from '../../types/models'
 import { Button } from '../../components/ui/Button'
 
 export function SignUpPage() {
-  const { signUp, sendOtp, verifyOtp } = useAuth()
+  const { signUp } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
 
@@ -16,30 +16,11 @@ export function SignUpPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [otp, setOtp] = useState('')
   const [department, setDepartment] = useState('Computer Science & Engineering')
   const [role, setRole] = useState<UserRole>('faculty')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [otpSent, setOtpSent] = useState(false)
-
-  const handleSendOtp = async () => {
-    if (!email.trim()) {
-      showToast('error', 'Email required', 'Please enter your institutional email first.')
-      return
-    }
-
-    try {
-      await sendOtp(email)
-      setOtpSent(true)
-      showToast('success', 'OTP sent to your email', 'Check your email for the 6-digit verification code. The code will expire in 5 minutes.')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to send OTP.'
-      showToast('error', 'OTP failed', message)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -53,23 +34,12 @@ export function SignUpPage() {
       return
     }
 
-    if (!otpSent) {
-      showToast('error', 'OTP required', 'Please send and verify the OTP before creating the account.')
-      return
-    }
-
-    const isOtpValid = await verifyOtp(email, otp)
-    if (!isOtpValid) {
-      showToast('error', 'Invalid OTP', 'The OTP is incorrect or has expired. Please request a new code.')
-      return
-    }
-
     setIsLoading(true)
 
     try {
       const result = await signUp({
         name: fullName.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         role,
         department,
@@ -234,32 +204,6 @@ export function SignUpPage() {
               >
                 {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="signup-otp" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-300">
-              OTP verification
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="signup-otp"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit OTP"
-                className="flex-1 rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 transition-all"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSendOtp}
-                className="text-[10px] px-3 py-2.5 border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 whitespace-nowrap"
-              >
-                {otpSent ? 'Resend' : 'Send OTP'}
-              </Button>
             </div>
           </div>
 

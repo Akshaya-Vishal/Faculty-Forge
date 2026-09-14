@@ -172,6 +172,15 @@ export function LoginPage() {
         </form>
 
         <div className="mt-6 flex flex-col items-center justify-center gap-2 border-t border-slate-900 pt-4 text-sm text-slate-400">
+          <span className="text-xs text-slate-500">
+            New to Faculty Forge?{' '}
+            <Link
+              to={ROUTES.SIGNUP}
+              className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              Create an account
+            </Link>
+          </span>
           <Link
             to={ROUTES.HOME}
             className="text-xs text-slate-400 hover:text-slate-200 transition-colors"

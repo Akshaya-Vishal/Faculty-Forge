@@ -36,6 +36,8 @@ Add your Resend API key to your Supabase project:
 3. Add a new environment variable:
    - Name: `RESEND_API_KEY`
    - Value: `re_your_actual_api_key_here`
+   - Name: `RESEND_FROM_EMAIL`
+     - Value: `no-reply@your-verified-domain.com`
 4. Save the changes
 
 #### Option B: Via CLI
@@ -55,8 +57,16 @@ supabase secrets set RESEND_API_KEY=re_your_actual_api_key_here
 
 #### Option B: Via Supabase CLI
 ```bash
-supabase functions deploy send-otp
+supabase functions deploy send-otp --no-verify-jwt
+supabase functions deploy verify-otp --no-verify-jwt
 ```
+
+These functions must allow anonymous requests because signup happens before the
+user has authenticated. If deploying from the Supabase Dashboard, disable JWT
+verification for both functions.
+
+The repository includes this setting in `supabase/config.toml`. Deploy from the
+project root so Supabase applies it.
 
 ### 4. Update Database Schema
 
@@ -104,11 +114,28 @@ npm run dev
 - **Check Resend API Key**: Verify the key is correct and has the `emails.send` permission
 - **Check Edge Function**: Go to Supabase dashboard and check Edge Functions logs
 - **Check Email**: The email might be in spam folder; check spam folder first
+- With Resend's default `onboarding@resend.dev` sender, the recipient must be the
+  email address associated with your Resend account. To send OTPs to any faculty
+  email, verify your own domain in Resend and change the `from` address in
+  `supabase/functions/send-otp/index.ts`.
+- Check **Resend → Emails → Logs** for the delivery status. `delivered`, `bounced`,
+  `complained`, and `failed` are different from the API accepting the request.
 
 ### "Edge Function not found" error
 - Make sure the function is deployed correctly
 - Check the function name matches exactly: `send-otp`
 - Check the Supabase project URL and credentials are correct
+
+### "Invalid or expired OTP" after entering the email code
+- Deploy both `send-otp` and `verify-otp`; signup verification is performed by the `verify-otp` Edge Function before the user is authenticated.
+- Do not add a public `SELECT` policy to `otp_codes`. The verification function uses the service role securely on the server.
+- Confirm that `RESEND_API_KEY` is configured as a Supabase Edge Function secret.
+
+### "Edge Function returned a non-2xx status code"
+- Open **Edge Functions → Logs** and inspect the latest `send-otp` request.
+- Confirm `RESEND_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` are available to the function.
+- Confirm JWT verification is disabled for both `send-otp` and `verify-otp`.
+- Redeploy both functions after changing secrets or function code.
 
 ### OTP expired before use
 - OTPs expire after 5 minutes

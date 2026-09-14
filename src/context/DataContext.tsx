@@ -8,6 +8,17 @@ import {
   INITIAL_QUESTION_PAPERS,
 } from '../data/mockData'
 import { getDepartments, getSubjects, supabase } from '../lib/supabase'
+import { useAuth } from './AuthContext'
+import {
+  deletePaperFromSupabase,
+  deleteQuestionFromSupabase,
+  fetchMyPapers,
+  getAllPapersForAdmin,
+  insertQuestionInSupabase,
+  savePaperToSupabase,
+  updateQuestionInSupabase,
+  updateQuestionPaperInSupabase,
+} from '../lib/supabaseQueries'
 import type {
   Course,
   DepartmentSummary,
@@ -97,7 +108,44 @@ function numberValue(record: SupabaseRecord, key: string, fallback: number) {
   return Number.isFinite(value) ? value : fallback
 }
 
+function mapSupabasePaper(row: SupabaseRecord): QuestionPaper {
+  return {
+    id: stringValue(row, 'id', `qp-${Date.now()}`),
+    title: stringValue(row, 'title', 'Untitled Question Paper'),
+    examName: stringValue(row, 'exam_name', 'Internal Examination'),
+    internalType: stringValue(row, 'internal_type', 'Internal 1') as QuestionPaper['internalType'],
+    academicYear: stringValue(row, 'academic_year', '2024-2025'),
+    semester: stringValue(row, 'semester', 'Odd'),
+    semesterNumber: numberValue(row, 'semester_number', 1),
+    departmentCode: stringValue(row, 'department_code', ''),
+    departmentName: stringValue(row, 'department', 'General'),
+    branch: stringValue(row, 'department', 'General'),
+    regulation: stringValue(row, 'regulation', 'R-2023'),
+    courseId: stringValue(row, 'subject_id', ''),
+    courseCode: stringValue(row, 'course_code', ''),
+    courseName: stringValue(row, 'course_name', ''),
+    durationMinutes: numberValue(row, 'duration_minutes', 90),
+    maxMarks: numberValue(row, 'max_marks', 50),
+    status: stringValue(row, 'status', 'Draft') as QuestionPaper['status'],
+    facultyId: stringValue(row, 'faculty_id', ''),
+    facultyName: stringValue(row, 'faculty_name', ''),
+    facultyDept: stringValue(row, 'department', 'General'),
+    sections: Array.isArray(row.sections) ? row.sections as QuestionPaper['sections'] : [],
+    courseOutcomesList: Array.isArray(row.course_outcomes_list)
+      ? row.course_outcomes_list as QuestionPaper['courseOutcomesList']
+      : [],
+    generalInstructions: Array.isArray(row.general_instructions) ? row.general_instructions as string[] : [],
+    reviewComments: Array.isArray(row.review_comments) ? row.review_comments as ReviewComment[] : [],
+    setLabel: stringValue(row, 'set_label', 'Set A') as QuestionPaper['setLabel'],
+    submittedAt: typeof row.submitted_at === 'string' ? row.submitted_at : undefined,
+    approvedAt: typeof row.approved_at === 'string' ? row.approved_at : undefined,
+    createdAt: stringValue(row, 'created_at', new Date().toISOString()),
+    updatedAt: stringValue(row, 'updated_at', new Date().toISOString()),
+  }
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [papers, setPapers] = useState<QuestionPaper[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PAPERS)
@@ -218,6 +266,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     hydrateFromSupabase()
   }, [])
 
+  useEffect(() => {
+    if (!supabase || !user?.id || user.id.startsWith('demo-') || user.id.startsWith('local-')) return
+
+    const hydratePapersFromSupabase = async () => {
+      try {
+        const rows = user.role === 'admin' ? await getAllPapersForAdmin() : await fetchMyPapers(user.id)
+        if (rows.length > 0) {
+          setPapers(rows.map((row) => mapSupabasePaper(row as SupabaseRecord)))
+        }
+      } catch (error) {
+        console.warn('Supabase paper hydration failed, using local paper data.', error)
+      }
+    }
+
+    void hydratePapersFromSupabase()
+  }, [user])
+
   // Sync to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PAPERS, JSON.stringify(papers))
@@ -251,6 +316,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatedAt: new Date().toISOString(),
     }
     setPapers((prev) => [newPaper, ...prev])
+    if (supabase && !paperData.facultyId.startsWith('demo-') && !paperData.facultyId.startsWith('local-')) {
+      void savePaperToSupabase(paperData)
+        .then((savedPaper) => {
+          if (savedPaper?.id) {
+            setPapers((prev) => prev.map((paper) => (paper.id === newPaper.id ? { ...paper, id: savedPaper.id } : paper)))
+          }
+        })
+        .catch((error) => {
+          console.warn('Supabase paper creation failed. Keeping local paper data.', error)
+        })
+    }
     return newPaper
   }
 
@@ -258,10 +334,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setPapers((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p)),
     )
+    if (supabase && !id.startsWith('qp-') && !id.startsWith('qp-copy-')) {
+      void updateQuestionPaperInSupabase(id, updates).catch((error) => {
+        console.warn('Supabase paper update failed. Keeping local paper data.', error)
+      })
+    }
   }
 
   const deletePaper = (id: string) => {
     setPapers((prev) => prev.filter((p) => p.id !== id))
+    if (supabase && !id.startsWith('qp-') && !id.startsWith('qp-copy-')) {
+      void deletePaperFromSupabase(id).catch((error) => {
+        console.warn('Supabase paper deletion failed.', error)
+      })
+    }
   }
 
   const submitPaper = (id: string) => {
@@ -377,15 +463,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString().split('T')[0],
     }
     setQuestions((prev) => [newQ, ...prev])
+    if (supabase && user?.id && !user.id.startsWith('demo-') && !user.id.startsWith('local-')) {
+      void insertQuestionInSupabase(qData).catch((error) => {
+        console.warn('Supabase question creation failed. Keeping local question data.', error)
+      })
+    }
     return newQ
   }
 
   const updateQuestion = (id: string, updates: Partial<Question>) => {
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...updates } : q)))
+    if (supabase && !id.startsWith('q-')) {
+      void updateQuestionInSupabase(id, updates).catch((error) => {
+        console.warn('Supabase question update failed. Keeping local question data.', error)
+      })
+    }
   }
 
   const deleteQuestion = (id: string) => {
     setQuestions((prev) => prev.filter((q) => q.id !== id))
+    if (supabase && !id.startsWith('q-')) {
+      void deleteQuestionFromSupabase(id).catch((error) => {
+        console.warn('Supabase question deletion failed.', error)
+      })
+    }
   }
 
   const addExamCycle = (cycleData: Omit<ExamCycle, 'id'>): ExamCycle => {

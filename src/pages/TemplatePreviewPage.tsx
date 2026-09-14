@@ -169,7 +169,7 @@ export function TemplatePreviewPage() {
           <div className="px-5 pb-2">
             <div className="grid grid-cols-[1.4fr_2.4fr_1.2fr] border border-black text-[11px] font-bold">
               <div className="border-r border-black px-2 py-1.5">Course Code - Course Name</div>
-              <div className="border-r border-black px-2 py-1.5">{paper.courseCode || '________________'} - {paper.courseName || '________________'}</div>
+              <div className="border-r border-black px-2 py-1.5 text-center">{paper.courseCode || '________________'} - {paper.courseName || '________________'}</div>
               <div className="px-2 py-1.5 text-center">(Common to {paper.commonTo || '____'})</div>
             </div>
           </div>

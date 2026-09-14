@@ -9,7 +9,7 @@ function wordElement(document: Document, name: string) {
   return document.createElementNS(WORD_NAMESPACE, `w:${name}`)
 }
 
-function setCellText(cell: WordElement, text: string) {
+function setCellText(cell: WordElement, text: string, alignment?: 'center') {
   const document = cell.ownerDocument
   const properties = Array.from(cell.children).find(
     (child) => child.namespaceURI === WORD_NAMESPACE && child.localName === 'tcPr',
@@ -18,11 +18,24 @@ function setCellText(cell: WordElement, text: string) {
   if (properties) cell.appendChild(properties)
 
   const paragraph = wordElement(document, 'p')
+  if (alignment) {
+    const paragraphProperties = wordElement(document, 'pPr')
+    const justification = wordElement(document, 'jc')
+    justification.setAttribute('w:val', alignment)
+    paragraphProperties.appendChild(justification)
+    paragraph.appendChild(paragraphProperties)
+  }
   const run = wordElement(document, 'r')
-  const textNode = wordElement(document, 't')
-  textNode.setAttribute('xml:space', 'preserve')
-  textNode.textContent = text
-  run.appendChild(textNode)
+  const lines = text.split('\n')
+  lines.forEach((line, index) => {
+    const textNode = wordElement(document, 't')
+    textNode.setAttribute('xml:space', 'preserve')
+    textNode.textContent = line
+    run.appendChild(textNode)
+    if (index < lines.length - 1) {
+      run.appendChild(wordElement(document, 'br'))
+    }
+  })
   paragraph.appendChild(run)
   cell.appendChild(paragraph)
 }
@@ -68,6 +81,7 @@ function fillHeaderRows(paper: QuestionPaper, rows: Element[]) {
       setCellText(
         cells[0],
         `${paper.courseCode} - ${paper.courseName}\n(Common to ${paper.commonTo || '____'})`,
+        'center',
       )
     }
   }
@@ -139,8 +153,28 @@ function questionRows(document: Document) {
   return Array.from(document.getElementsByTagNameNS(WORD_NAMESPACE, 'tr'))
 }
 
+function keepHeaderOnFirstPage(document: Document) {
+  const section = document.getElementsByTagNameNS(WORD_NAMESPACE, 'sectPr')[0]
+  if (!section) return
+
+  const headerReference = Array.from(section.children).find(
+    (child) => child.namespaceURI === WORD_NAMESPACE && child.localName === 'headerReference',
+  )
+  if (headerReference) headerReference.setAttribute('w:type', 'first')
+
+  const hasFirstPageSetting = Array.from(section.children).some(
+    (child) => child.namespaceURI === WORD_NAMESPACE && child.localName === 'titlePg',
+  )
+  if (!hasFirstPageSetting) section.appendChild(wordElement(document, 'titlePg'))
+}
+
 function normalized(value: string) {
   return value.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function alternativeQuestionNumber(questionNumber: string) {
+  if (/\(i\)\s*$/i.test(questionNumber)) return questionNumber.replace(/\(i\)\s*$/i, '(ii)')
+  return questionNumber.replace('(a)', '(b)')
 }
 
 function fillQuestionRows(document: Document, paper: QuestionPaper) {
@@ -154,6 +188,7 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
     if (cells.length === 0) return
 
     const coCell = cells[0]
+    const questionNumberCell = cells.length >= 4 ? cells[1] : undefined
     const markCell = cells[cells.length - 1]
     const textCellIndex = cells.length >= 4 ? 2 : 1
     const textCell = cells[textCellIndex] || cells[cells.length - 2] || cells[1] || cells[0]
@@ -161,13 +196,15 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
     setCellText(coCell, `${question.courseOutcome}, ${question.knowledgeLevel || 'K1'}`)
 
     const questionNumber = question.questionNumber ? `${question.questionNumber}`.trim() : ''
-    const questionText = question.text.trim()
-    const formattedQuestionText = questionNumber && !questionText.toLowerCase().startsWith(questionNumber.toLowerCase())
-      ? `${questionNumber} ${questionText}`
-      : questionText
+    const questionText = question.text.trim().replace(/^\s*(?:question\s*)?\d+(?:\s*\([a-z0-9ivx]+\))*\s*[.):]?\s+/i, '').trim()
 
-    if (textCell) setCellText(textCell, formattedQuestionText)
+    if (questionNumberCell) setCellText(questionNumberCell, questionNumber)
+    if (textCell) setCellText(textCell, questionText)
     if (markCell) setCellText(markCell, String(question.marks))
+  }
+
+  const clearRow = (row: Element) => {
+    rowCells(row).forEach((cell) => setCellText(cell, ''))
   }
 
   const partAHeaderIndex = rows.findIndex((row) => normalized(row.textContent || '').includes('part a (5 x 2 = 10 marks)'))
@@ -183,6 +220,13 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
 
   const partBHeaderIndex = rows.findIndex((row) => normalized(row.textContent || '').includes('part b (1 x 8 = 8 marks)'))
   const partCHeaderIndex = rows.findIndex((row) => normalized(row.textContent || '').includes('part c (2 x 16 = 32 marks)'))
+
+  if (partA && partAHeaderIndex >= 0 && partBHeaderIndex >= 0) {
+    for (let rowIndex = partAHeaderIndex + partA.questions.length + 1; rowIndex < partBHeaderIndex; rowIndex += 1) {
+      const row = rows[rowIndex]
+      if (row && row.getElementsByTagNameNS(WORD_NAMESPACE, 'tc').length >= 3) clearRow(row)
+    }
+  }
 
   questions.filter((question) => question.questionNumber !== '1.' && question.questionNumber !== '2.' && question.questionNumber !== '3.' && question.questionNumber !== '4.' && question.questionNumber !== '5.').forEach((question) => {
     const candidates = rows.filter((row) => {
@@ -202,7 +246,7 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
     fillRow(row, question)
 
     if (question.orQuestion) {
-      const orNumber = normalized(question.orQuestion.subLabel || question.questionNumber.replace('(a)', '(b)'))
+      const orNumber = normalized(question.orQuestion.subLabel || alternativeQuestionNumber(question.questionNumber))
       const orRow = rows.find((candidate) => {
         if (usedRows.has(candidate)) return false
         const rowIndex = rows.indexOf(candidate)
@@ -239,6 +283,7 @@ export async function createFilledQuestionPaperDocx(paper: QuestionPaper) {
       `DEPARTMENT OF ${paper.departmentName || paper.branch || '________________'}`,
     )
   }
+  keepHeaderOnFirstPage(document)
   fillHeaderRows(paper, rows)
   fillCourseOutcomes(paper, rows)
   fillMarksDistribution(paper, rows)

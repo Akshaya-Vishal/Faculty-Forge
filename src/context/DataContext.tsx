@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   ADS_DATASET_COURSES,
   INITIAL_COURSES,
@@ -304,7 +304,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.DEPTS, JSON.stringify(departments))
   }, [departments])
 
-  const getPaperById = (id: string) => papers.find((p) => p.id === id)
+  const visiblePapers = useMemo(() => {
+    if (!user || user.role === 'admin') return papers
+    if (!user.id) return papers
+    return papers.filter((paper) => paper.facultyId === user.id)
+  }, [papers, user])
+
+  const getPaperById = (id: string) => visiblePapers.find((p) => p.id === id)
   const getCourseById = (id: string) => courses.find((c) => c.id === id)
   const getCourseByCode = (code: string) => courses.find((c) => c.code === code)
 
@@ -514,7 +520,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider
       value={{
-        papers,
+        papers: visiblePapers,
         courses,
         questions,
         examCycles,

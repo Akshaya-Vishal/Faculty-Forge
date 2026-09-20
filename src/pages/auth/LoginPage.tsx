@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Eye, EyeOff, GraduationCap, Lock, Mail, Shield, User } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
-import { DEMO_ADMIN, DEMO_FACULTY } from '../../data/mockData'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import type { UserRole } from '../../types/models'
@@ -14,20 +13,15 @@ export function LoginPage() {
   const navigate = useNavigate()
 
   const [role, setRole] = useState<UserRole>('faculty')
-  const [email, setEmail] = useState(DEMO_FACULTY.email)
-  const [password, setPassword] = useState('Faculty@123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleRoleChange = (newRole: UserRole) => {
     setRole(newRole)
-    if (newRole === 'admin') {
-      setEmail(DEMO_ADMIN.email)
-      setPassword('Admin@123')
-    } else {
-      setEmail(DEMO_FACULTY.email)
-      setPassword('Faculty@123')
-    }
+    setEmail('')
+    setPassword('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

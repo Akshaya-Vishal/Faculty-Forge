@@ -23,6 +23,7 @@ export const ROUTES = {
 
   // Admin Routes
   ADMIN: '/admin',
+  ADMIN_PAPERS: '/admin/papers',
   ADMIN_REVIEWS: '/admin/reviews',
   ADMIN_PAPER_GENERATOR: '/admin/generator',
   ADMIN_EXAMS: '/admin/exams',

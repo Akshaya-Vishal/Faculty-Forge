@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   Bell,
-  CheckCircle2,
   LogOut,
   Menu,
   RotateCcw,
@@ -19,7 +18,7 @@ type TopBarProps = {
 }
 
 export function TopBar({ pageTitle, onToggleMobileMenu }: TopBarProps) {
-  const { user, role, switchRole, logout } = useAuth()
+  const { user, role, logout } = useAuth()
   const { papers, resetDataToDefault } = useData()
   const { showToast } = useToast()
   const navigate = useNavigate()
@@ -60,20 +59,6 @@ export function TopBar({ pageTitle, onToggleMobileMenu }: TopBarProps) {
         to: ROUTES.FACULTY_PAPERS,
       })),
   ].slice(0, 5)
-
-  const handleRoleToggle = (targetRole: 'faculty' | 'admin') => {
-    switchRole(targetRole)
-    showToast(
-      'info',
-      `Switched to ${targetRole === 'admin' ? 'Admin / Exam Cell' : 'Faculty'} Portal`,
-      `You are now viewing as ${targetRole === 'admin' ? 'Prof. Robert Vance' : 'Dr. Sarah Jenkins'}`,
-    )
-    if (targetRole === 'admin') {
-      navigate(ROUTES.ADMIN)
-    } else {
-      navigate(ROUTES.FACULTY)
-    }
-  }
 
   const handleResetData = () => {
     resetDataToDefault()
@@ -216,16 +201,6 @@ export function TopBar({ pageTitle, onToggleMobileMenu }: TopBarProps) {
                   <UserCheck className="size-4 text-slate-400" />
                   Account Settings
                 </Link>
-                <button
-                  onClick={() => {
-                    setShowUserMenu(false)
-                    handleRoleToggle(role === 'admin' ? 'faculty' : 'admin')
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
-                >
-                  <CheckCircle2 className="size-4" />
-                  Switch to {role === 'admin' ? 'Faculty' : 'Admin'} Mode
-                </button>
               </div>
 
               <div className="border-t border-slate-100 pt-1">

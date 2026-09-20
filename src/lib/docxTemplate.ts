@@ -261,6 +261,18 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
       }
     }
   })
+
+  // The official template contains both 8-mark subpart rows and 16-mark rows.
+  // Clear any unused question rows so a 16-mark paper cannot retain labels such
+  // as 8(a)(ii) or 8(b)(ii) from the 8-mark layout.
+  if (partCHeaderIndex >= 0) {
+    const questionLabelPattern = /\b\d+\s*\([ab]\)(?:\s*\((?:i|ii)\))?/i
+    rows.forEach((row, rowIndex) => {
+      if (rowIndex <= partCHeaderIndex || usedRows.has(row)) return
+      if (row.getElementsByTagNameNS(WORD_NAMESPACE, 'tc').length < 3) return
+      if (questionLabelPattern.test(rowText(row))) clearRow(row)
+    })
+  }
 }
 
 export async function createFilledQuestionPaperDocx(paper: QuestionPaper) {
@@ -309,4 +321,3 @@ export async function downloadFilledQuestionPaper(paper: QuestionPaper) {
   anchor.remove()
   URL.revokeObjectURL(url)
 }
-

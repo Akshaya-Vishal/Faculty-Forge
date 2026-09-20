@@ -70,7 +70,7 @@ export function Sidebar({ role, mobileOpen, onCloseMobile }: SidebarProps) {
     },
     {
       label: 'All Question Papers',
-      to: ROUTES.STEP6_HUB,
+      to: ROUTES.ADMIN_PAPERS,
       icon: FolderCheck,
       badge: papers.length,
     },

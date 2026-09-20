@@ -65,6 +65,7 @@ export function App() {
 
               {/* Admin Routes */}
               <Route path={ROUTES.ADMIN} element={<AdminDashboardPage />} />
+              <Route path={ROUTES.ADMIN_PAPERS} element={<Step6PaperHubPage />} />
               <Route path={ROUTES.ADMIN_REVIEWS} element={<AdminReviewsPage />} />
               <Route path={ROUTES.ADMIN_PAPER_GENERATOR} element={<AdminPaperGeneratorPage />} />
               <Route path={ROUTES.ADMIN_EXAMS} element={<AdminExamsPage />} />

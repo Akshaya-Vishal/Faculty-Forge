@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
+import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { useToast } from '../../context/ToastContext'
 import { AppLayout } from '../../components/layout/AppLayout'
@@ -23,8 +24,11 @@ import type { QuestionPaper } from '../../types/models'
 
 export function FacultyPapersPage() {
   const { papers, deletePaper, submitPaper, duplicatePaper } = useData()
+  const { user } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
+
+  const visiblePapers = user?.role === 'admin' ? papers : papers.filter((paper) => paper.facultyId === user?.id)
 
   const [activeTab, setActiveTab] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -32,26 +36,26 @@ export function FacultyPapersPage() {
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null)
 
   const tabOptions = [
-    { id: 'all', label: 'All Papers', count: papers.length },
+    { id: 'all', label: 'All Papers', count: visiblePapers.length },
     {
       id: 'Draft',
       label: 'Drafts',
-      count: papers.filter((p) => p.status === 'Draft').length,
+      count: visiblePapers.filter((p) => p.status === 'Draft').length,
     },
     {
       id: 'Submitted',
       label: 'Submitted / In Review',
-      count: papers.filter((p) => p.status === 'Submitted' || p.status === 'Under Review').length,
+      count: visiblePapers.filter((p) => p.status === 'Submitted' || p.status === 'Under Review').length,
     },
     {
       id: 'Revision Requested',
       label: 'Needs Revision',
-      count: papers.filter((p) => p.status === 'Revision Requested').length,
+      count: visiblePapers.filter((p) => p.status === 'Revision Requested').length,
     },
     {
       id: 'Approved',
       label: 'Approved',
-      count: papers.filter((p) => p.status === 'Approved').length,
+      count: visiblePapers.filter((p) => p.status === 'Approved').length,
     },
   ]
 
@@ -63,7 +67,7 @@ export function FacultyPapersPage() {
         ? 'Internal 1'
         : 'Internal 1')
 
-  const filteredPapers = papers.filter((paper) => {
+  const filteredPapers = visiblePapers.filter((paper) => {
     if (activeTab === 'Submitted') {
       if (paper.status !== 'Submitted' && paper.status !== 'Under Review') return false
     } else if (activeTab !== 'all') {

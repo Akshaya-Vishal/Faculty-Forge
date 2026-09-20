@@ -28,7 +28,7 @@ export function FacultyDashboardPage() {
 
   const [previewPaper, setPreviewPaper] = useState<QuestionPaper | null>(null)
 
-  const facultyPapers = papers.filter((p) => p.facultyId === user?.id || true)
+  const facultyPapers = papers.filter((p) => p.facultyId === user?.id)
   const draftCount = facultyPapers.filter((p) => p.status === 'Draft').length
   const submittedCount = facultyPapers.filter((p) => p.status === 'Submitted' || p.status === 'Under Review').length
   const revisionCount = facultyPapers.filter((p) => p.status === 'Revision Requested').length

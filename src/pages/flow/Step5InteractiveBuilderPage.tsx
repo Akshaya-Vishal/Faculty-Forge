@@ -54,6 +54,11 @@ function getAlternativeQuestionNumber(questionNumber: string) {
   return questionNumber.replace('(a)', '(b)')
 }
 
+function normalizePartCQuestionNumber(questionNumber: string, marks: number) {
+  if (marks !== 16) return questionNumber
+  return questionNumber.replace(/\s*\((?:i|ii)\)\s*$/i, '').trim()
+}
+
 function getPartCFormat(partMarks: number) {
   return partMarks === 8
     ? {
@@ -64,6 +69,14 @@ function getPartCFormat(partMarks: number) {
         title: 'Part C (2 x 16 = 32 Marks)',
         instruction: 'Answer Question 7(a) OR 7(b), and Question 8(a) OR 8(b).',
       }
+}
+
+function getInsertedMarks(paper: QuestionPaper) {
+      return paper.sections.reduce(
+        (total, section) =>
+          total + section.questions.reduce((sectionTotal, question) => sectionTotal + Math.max(0, question.marks || 0), 0),
+        0,
+      )
 }
 
 export function Step5InteractiveBuilderPage() {
@@ -138,9 +151,7 @@ export function Step5InteractiveBuilderPage() {
   }
 
   // Calculate live marks
-  const totalCalculatedMarks = paper.sections.reduce((acc, sec) => {
-    return acc + sec.questions.reduce((qAcc, q) => qAcc + q.marks, 0)
-  }, 0)
+  const totalCalculatedMarks = getInsertedMarks(paper)
 
   // Insert Question directly into paper
   const handleInsertQuestion = (e: React.FormEvent) => {
@@ -175,9 +186,13 @@ export function Step5InteractiveBuilderPage() {
     }
 
     const isIndependentPartCQuestion = targetSectionKey === 'PART_C' && marks === 8
+    const normalizedQuestionNumber = normalizePartCQuestionNumber(qNumber, marks)
+    const alternativeQuestionNumber = marks === 16
+      ? normalizedQuestionNumber.replace('(a)', '(b)')
+      : getAlternativeQuestionNumber(normalizedQuestionNumber)
     const newQ: PaperQuestion = {
       id: `pq-${Date.now()}`,
-      questionNumber: qNumber,
+      questionNumber: normalizedQuestionNumber,
       text: finalQuestionText,
       marks,
       knowledgeLevel,
@@ -189,7 +204,7 @@ export function Step5InteractiveBuilderPage() {
         ? undefined
         : {
             id: `or-${Date.now()}`,
-            subLabel: getAlternativeQuestionNumber(qNumber),
+            subLabel: alternativeQuestionNumber,
             text: orQuestionText || defaultAlternativeText,
             marks,
             knowledgeLevel,
@@ -421,8 +436,8 @@ export function Step5InteractiveBuilderPage() {
               </div>
               <p className="text-[11px] font-semibold mt-0.5">
                 {totalCalculatedMarks === paper.maxMarks
-                  ? '✓ Perfectly balanced (10M + 8M + 32M = 50M)'
-                  : 'Add questions to complete 50 Marks'}
+                  ? `✓ Perfectly balanced (${paper.maxMarks} marks)`
+                  : `Add questions to complete ${paper.maxMarks} marks`}
               </p>
             </div>
             {totalCalculatedMarks === paper.maxMarks ? (

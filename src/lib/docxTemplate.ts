@@ -172,9 +172,18 @@ function normalized(value: string) {
   return value.replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
-function alternativeQuestionNumber(questionNumber: string) {
+function alternativeQuestionNumber(questionNumber: string, marks?: number) {
+  if (marks === 16) return questionNumber.replace('(a)', '(b)').replace('(i)', '').replace('(ii)', '').replace(/\s+/g, ' ').trim()
   if (/\(i\)\s*$/i.test(questionNumber)) return questionNumber.replace(/\(i\)\s*$/i, '(ii)')
   return questionNumber.replace('(a)', '(b)')
+}
+
+const STANDARD_TEMPLATE_PATH = '/templates/question-paper-template.docx'
+const SIXTEEN_MARK_TEMPLATE_PATH = '/templates/(Template 2) IAPRE06.7 Internal Examination Question Paper Template (R 2021) - All UG courses.docx'
+
+function usesSixteenMarkPartC(paper: QuestionPaper) {
+  const partC = paper.sections.find((section) => section.sectionKey === 'PART_C')
+  return partC?.title.includes('2 x 16') || partC?.questions.some((question) => question.marks === 16) || false
 }
 
 function fillQuestionRows(document: Document, paper: QuestionPaper) {
@@ -246,7 +255,7 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
     fillRow(row, question)
 
     if (question.orQuestion) {
-      const orNumber = normalized(question.orQuestion.subLabel || alternativeQuestionNumber(question.questionNumber))
+      const orNumber = normalized(alternativeQuestionNumber(question.questionNumber, question.marks))
       const orRow = rows.find((candidate) => {
         if (usedRows.has(candidate)) return false
         const rowIndex = rows.indexOf(candidate)
@@ -257,7 +266,7 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
       })
       if (orRow) {
         usedRows.add(orRow)
-        fillRow(orRow, { ...question.orQuestion, questionNumber: question.orQuestion.subLabel })
+        fillRow(orRow, { ...question.orQuestion, questionNumber: alternativeQuestionNumber(question.questionNumber, question.marks) })
       }
     }
   })
@@ -276,7 +285,13 @@ function fillQuestionRows(document: Document, paper: QuestionPaper) {
 }
 
 export async function createFilledQuestionPaperDocx(paper: QuestionPaper) {
-  const response = await fetch('/templates/question-paper-template.docx')
+  const templatePath = usesSixteenMarkPartC(paper)
+    ? SIXTEEN_MARK_TEMPLATE_PATH
+    : STANDARD_TEMPLATE_PATH
+  let response = await fetch(templatePath)
+  if (!response.ok && templatePath !== STANDARD_TEMPLATE_PATH) {
+    response = await fetch(STANDARD_TEMPLATE_PATH)
+  }
   if (!response.ok) throw new Error('Unable to load the official Word template.')
 
   const zip = await JSZip.loadAsync(await response.arrayBuffer())

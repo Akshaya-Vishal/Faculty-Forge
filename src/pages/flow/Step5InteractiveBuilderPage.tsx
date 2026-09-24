@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Trash2,
+  Pencil,
   Database,
 } from 'lucide-react'
 import { useData } from '../../context/DataContext'
@@ -46,7 +47,7 @@ function getPartCQuestionNumberForIndex(index: number, partMarks: number) {
     ]
     return labels[index] || labels[labels.length - 1]
   }
-  return index === 0 ? '7 (a)' : '8 (a)'
+  return index === 0 ? '7 (a)' : '7 (b)'
 }
 
 function getAlternativeQuestionNumber(questionNumber: string) {
@@ -102,6 +103,7 @@ export function Step5InteractiveBuilderPage() {
   const [orQuestionText, setOrQuestionText] = useState('')
   const [isMcqFormat, setIsMcqFormat] = useState(false)
   const [mcqOptions, setMcqOptions] = useState(['', '', '', ''])
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
 
   const isPartAMcqNumber = (value: string) => {
     const number = Number.parseInt(value, 10)
@@ -153,15 +155,32 @@ export function Step5InteractiveBuilderPage() {
   // Calculate live marks
   const totalCalculatedMarks = getInsertedMarks(paper)
 
-  // Insert Question directly into paper
+  const handleEditQuestion = (sectionKey: 'PART_A' | 'PART_B' | 'PART_C', question: PaperQuestion) => {
+    const optionLines = question.text.split('\n').filter((line) => /^[a-d]\)\s+/i.test(line))
+    const questionLines = question.text.split('\n').filter((line) => !/^[a-d]\)\s+/i.test(line))
+
+    setEditingQuestionId(question.id)
+    setTargetSectionKey(sectionKey)
+    setQNumber(question.questionNumber)
+    setKnowledgeLevel(question.knowledgeLevel)
+    setCourseOutcome(question.courseOutcome)
+    setMarks(question.marks)
+    setQuestionText(questionLines.join('\n'))
+    setIsOrChoice(Boolean(question.isChoice && question.orQuestion))
+    setOrQuestionText(question.orQuestion?.text || '')
+    setIsMcqFormat(sectionKey === 'PART_A' && (optionLines.length > 0 || isPartAMcqNumber(question.questionNumber)))
+    setMcqOptions(optionLines.map((line) => line.replace(/^[a-d]\)\s+/i, '').trim()).concat(['', '', '', '']).slice(0, 4))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const handleInsertQuestion = (e: React.FormEvent) => {
     e.preventDefault()
     const currentSection = paper.sections.find((section) => section.sectionKey === targetSectionKey)
-    if (targetSectionKey === 'PART_A' && (currentSection?.questions.length || 0) >= 5) {
+    if (!editingQuestionId && targetSectionKey === 'PART_A' && (currentSection?.questions.length || 0) >= 5) {
       showToast('warning', 'Part A is full', 'Only 5 questions are allowed in Part A.')
       return
     }
-    if (targetSectionKey === 'PART_C' && marks === 8 && (currentSection?.questions.length || 0) >= 8) {
+    if (!editingQuestionId && targetSectionKey === 'PART_C' && marks === 8 && (currentSection?.questions.length || 0) >= 8) {
       showToast('warning', 'Part C is full', 'The 8-mark format allows four questions for Question 7 and four for Question 8.')
       return
     }
@@ -190,8 +209,9 @@ export function Step5InteractiveBuilderPage() {
     const alternativeQuestionNumber = marks === 16
       ? normalizedQuestionNumber.replace('(a)', '(b)')
       : getAlternativeQuestionNumber(normalizedQuestionNumber)
+    const existingQuestion = currentSection?.questions.find((question) => question.id === editingQuestionId)
     const newQ: PaperQuestion = {
-      id: `pq-${Date.now()}`,
+      id: existingQuestion?.id || `pq-${Date.now()}`,
       questionNumber: normalizedQuestionNumber,
       text: finalQuestionText,
       marks,
@@ -203,7 +223,7 @@ export function Step5InteractiveBuilderPage() {
       orQuestion: isIndependentPartCQuestion || !isOrChoice
         ? undefined
         : {
-            id: `or-${Date.now()}`,
+            id: existingQuestion?.orQuestion?.id || `or-${Date.now()}`,
             subLabel: alternativeQuestionNumber,
             text: orQuestionText || defaultAlternativeText,
             marks,
@@ -218,7 +238,9 @@ export function Step5InteractiveBuilderPage() {
       if (sec.sectionKey !== targetSectionKey) return sec
       return {
         ...sec,
-        questions: [...sec.questions, newQ],
+        questions: editingQuestionId
+          ? sec.questions.map((question) => question.id === editingQuestionId ? newQ : question)
+          : [...sec.questions, newQ],
       }
     })
 
@@ -233,14 +255,17 @@ export function Step5InteractiveBuilderPage() {
 
     showToast(
       'success',
-      'Question Inserted & Pasted!',
-      `Added Q${qNumber} (${knowledgeLevel}, ${courseOutcome}, ${marks}M) directly to ${targetSectionKey.replace('_', ' ')}.`,
+      editingQuestionId ? 'Question Updated' : 'Question Inserted & Pasted!',
+      editingQuestionId
+        ? `Updated Q${qNumber} in ${targetSectionKey.replace('_', ' ')}.`
+        : `Added Q${qNumber} (${knowledgeLevel}, ${courseOutcome}, ${marks}M) directly to ${targetSectionKey.replace('_', ' ')}.`,
     )
 
     // Reset Form for next input
     setQuestionText('')
     setOrQuestionText('')
     setMcqOptions(['', '', '', ''])
+    setEditingQuestionId(null)
 
     // Auto increment Q number if Part A
     if (targetSectionKey === 'PART_A') {
@@ -277,7 +302,20 @@ export function Step5InteractiveBuilderPage() {
 
     setPaper({ ...paper, sections: updatedSections })
     updatePaper(paper.id, { sections: updatedSections })
+    if (editingQuestionId === questionId) {
+      setEditingQuestionId(null)
+      setQuestionText('')
+      setOrQuestionText('')
+      setMcqOptions(['', '', '', ''])
+    }
     showToast('info', 'Question Removed', 'Removed question item from paper.')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingQuestionId(null)
+    setQuestionText('')
+    setOrQuestionText('')
+    setMcqOptions(['', '', '', ''])
   }
 
   // AI Suggestion Generator
@@ -457,7 +495,7 @@ export function Step5InteractiveBuilderPage() {
           <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-center">
             <div>
               <span className="block text-[11px] font-bold uppercase tracking-widest text-indigo-600">
-                Add a question
+                {editingQuestionId ? 'Edit question' : 'Add a question'}
               </span>
               <h3 className="text-base font-extrabold text-slate-900">
                 Enter the question details
@@ -782,14 +820,24 @@ export function Step5InteractiveBuilderPage() {
             )}
 
             {/* Submit Question to Paper Button */}
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-end gap-2">
+              {editingQuestionId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  className="text-sm font-bold"
+                >
+                  Cancel Edit
+                </Button>
+              )}
               <Button
                 type="submit"
                 variant="primary"
                 className="w-full bg-indigo-600 text-sm font-bold hover:bg-indigo-700 sm:w-auto"
               >
-                <Plus className="size-5" />
-                ➕ Insert Question to Question Paper
+                {editingQuestionId ? <Pencil className="size-4" /> : <Plus className="size-5" />}
+                {editingQuestionId ? 'Save Question Changes' : 'Insert Question to Question Paper'}
               </Button>
             </div>
           </form>
@@ -854,13 +902,22 @@ export function Step5InteractiveBuilderPage() {
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => handleRemoveQuestion('PART_A', q.id)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                        title="Remove question"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditQuestion('PART_A', q)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          title="Edit question"
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveQuestion('PART_A', q.id)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Remove question"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -900,12 +957,22 @@ export function Step5InteractiveBuilderPage() {
                             {q.marks} Marks
                           </span>
                         </div>
-                        <button
-                          onClick={() => handleRemoveQuestion('PART_B', q.id)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditQuestion('PART_B', q)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                            title="Edit question"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveQuestion('PART_B', q.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            title="Remove question"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <p className="text-xs text-slate-800 leading-relaxed font-serif whitespace-pre-line">
@@ -961,12 +1028,22 @@ export function Step5InteractiveBuilderPage() {
                             {q.marks} Marks
                           </span>
                         </div>
-                        <button
-                          onClick={() => handleRemoveQuestion('PART_C', q.id)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditQuestion('PART_C', q)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                            title="Edit question"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveQuestion('PART_C', q.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            title="Remove question"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <p className="text-xs text-slate-800 leading-relaxed font-serif whitespace-pre-line">
